@@ -1,8 +1,6 @@
 # Imports
 import numpy as np
 # import pandas as pd
-# import matplotlib.pyplot as plt
-# import seaborn as sns
 from tqdm import tqdm_notebook as tqdm
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -10,7 +8,6 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
-# from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 # import pyro
 
@@ -20,11 +17,11 @@ def _get_samplers(total_len,init_size,val_size=10000, random_seed=1492):
     if random_seed:
         np.random.seed(random_seed)
     # Get Indices for validation and for initial random training sample
-    idxs = list(range(len(train_set)))
+    idxs = list(range(total_len))
     val_idx = np.random.choice(idxs,size=val_size, replace=False)
     train_idx = list(set(idxs)-set(val_idx))
     init_labels_idx = np.random.choice(train_idx,size=init_size, replace=False)
-    unlabeled_idx = list(set(idxs)-set(init_labels_idx))
+    unlabeled_idx = list(set(train_idx)-set(init_labels_idx))
 
     # Get samplers for torch
     val_sampler = SubsetRandomSampler(val_idx)
