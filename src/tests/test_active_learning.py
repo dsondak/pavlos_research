@@ -49,5 +49,13 @@ def test_get_samplers():
     i_comp = np.random.choice(new_idx, size=4, replace=False)
     u_comp = list(set(new_idx)-set(i_comp))
     assert(np.allclose(i_idx,i_comp))
-    print(len(u_comp),len(u_idx))
     assert(np.allclose(u_idx,u_comp))
+
+def test_boundary_proximity():
+    up = torch.autograd.variable.Variable(torch.Tensor([[1,2],[4,9]]))
+    res = al.boundary_proximity(up,num_points=1)
+    assert(np.allclose(res,[0]))
+
+def test_n_argmax():
+    pass
+    

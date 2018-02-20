@@ -141,3 +141,34 @@ def get_requested_points(model, unlab_loader, unlab_idx, policy, num_points=16):
     for x,y in unlab_loader:
         unlab_preds = model(Variable(x))
     return policy(unlab_preds, unlab_idx, num_points)
+
+def boundary_proximity(unlab_preds,num_points):
+    """ Takes in a torch Variable predictions and outputs the difference in the largest output of the
+    model and the next closest.  The smaller this number the closer the prediction is to the boundary.
+    This function works by finding the max of the input predictions and then subtracting that value
+    from its respective column. This leaves 0 as the maximum and the argmax w/o conisidering 0 is the
+    difference between the highest and second closest value.  We return the argmaxes of the "num_points"
+    closest values.
+    --------
+    Args: unlab_preds; torch Variable with the predictions (usually log probs or probs) of the model
+          num_points; int the number of points to return
+    --------
+    Returns: numpy array of argmaxes of the points closest to the boundary.
+    """
+    maxes,_ = torch.max(unlab_preds,dim=1)
+    centered_around_max = unlab_preds.data.sub(maxes.data.view(-1,1).expand_as(unlab_preds.data))
+    closest_col_to_zero = torch.sort(centered_around_max,dim=1)[0][:,-2]
+    diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=num_points)
+    return diffs_closest_to_zero
+
+def n_argmax(a,size):
+    """ Find the n highest argmaxes of a 1D array or torch FloatTensor. """
+    if type(a) == torch.FloatTensor:
+        a = a.numpy()
+    else:
+        a = np.array(a)
+
+    if len(a.shape)!=1:
+        raise ValueError('Only 1D input supported.')
+
+    return a.argsort()[-size:][::-1]
