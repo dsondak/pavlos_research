@@ -1,7 +1,6 @@
 # Imports
 import numpy as np
 # import pandas as pd
-from tqdm import tqdm_notebook as tqdm
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torch
