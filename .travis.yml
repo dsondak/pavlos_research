@@ -1,0 +1,14 @@
+language: python
+python:
+    - "3.6"
+before_install:
+    - pip install pytest pytest-cov
+    - pip install coveralls
+    - pip install http://download.pytorch.org/whl/cpu/torch-0.3.1-cp36-cp36m-linux_x86_64.whl
+    - pip install torchvision
+env:
+    - TEST_DIR=src/tests 
+script:
+    - cd $TEST_DIR && py.test
+after_success:
+    - coveralls
