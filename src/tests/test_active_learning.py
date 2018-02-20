@@ -3,11 +3,11 @@ import torch
 import active_learning as al
 
 def test_get_requested_points():
-    mod = np.vectorize(lambda x: x**2+1)
-    unlab_loader = [([i/2 for i in range(1,5)],[1,1,1,1])]
-    policy = lambda x,n: x+n
-    result = al.get_requested_points(mod, unlab_loader, policy)
-    assert(np.allclose(result,np.array([17.25,18.,19.25,21.])))
+    mod = lambda x: torch.pow(x,2)
+    unlab_loader = [(torch.Tensor([i/2 for i in range(1,5)]),torch.Tensor([1,1,1,1]))]
+    policy = lambda x,t,n: x+n
+    result = al.get_requested_points(mod, unlab_loader, [1,2,3,4], policy)
+    assert(np.allclose(result.data.numpy(),np.array([16.25,17.,18.25,20.])))
 
 def test_get_xy_split():
     gen = ((torch.Tensor([x]),torch.Tensor([x**2])) for x in range(1,5))

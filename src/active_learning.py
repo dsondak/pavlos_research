@@ -122,7 +122,7 @@ def accuracy(model,x,y):
     acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
     return acc
 
-def get_requested_points(model, unlab_loader, policy, num_points=16):
+def get_requested_points(model, unlab_loader, unlab_idx, policy, num_points=16):
     """ This function gets the number of points requested based on the function
     "policy" that is passed. "policy" can be any function to test.
     ---------
@@ -139,5 +139,5 @@ def get_requested_points(model, unlab_loader, policy, num_points=16):
         raise ValueError('The unlabeled loader must be one batch of the \
                             whole size of the unlabeled data.')
     for x,y in unlab_loader:
-        unlab_preds = model(x)
-    return policy(unlab_preds, num_points)
+        unlab_preds = model(Variable(x))
+    return policy(unlab_preds, unlab_idx, num_points)
