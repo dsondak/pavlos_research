@@ -20,11 +20,24 @@ def test_get_dataloader():
     y = torch.Tensor(np.array([1,2,5]))
     dset = torch.utils.data.dataset.TensorDataset(x,y)
     data_load = al.get_dataloader([0],[2],dset,batch_size=1)
-    for i in data_load:
-        pass 
+    truths = []
+    for x_t,y_t in data_load:
+        if x_t.equal(torch.Tensor([1,2,3]).view(1,-1) and y_t.numpy()[0]==1:
+            truths.append(True)
+            continue
+        if x_t.equal(torch.Tensor([4,5,6]).view(1,-1) and y_t.numpy()[0]==5:
+            truths.append(True)
+            continue
+        truths.append(False)
+    assert(all(truths))
 
 def test_accuracy():
-    pass
+    x = torch.Tensor(np.array([[1,2,3],[7,7,7],[4,5,6]]))
+    y = torch.Tensor(np.array([1,5,5]))
+    model = lambda x: torch.sum(x,axis=1)
+    probs = model(Variable(x))
+    _,ypred = torch.max(probs,1)
+    acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
 
 def test_get_samplers():
     pass

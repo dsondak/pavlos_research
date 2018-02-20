@@ -82,7 +82,7 @@ def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
 # Accuracy
 def accuracy(model,x,y):
     """ Get classification accuracy """
-    probs = model.forward((Variable(x)))
+    probs = model(Variable(x))
     _,ypred = torch.max(probs,1)
     acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
     return acc
