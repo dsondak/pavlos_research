@@ -12,7 +12,24 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 
 def _get_samplers(total_len,init_size,val_size=10000, random_seed=1492):
-    """ Get docs at some point, but this basically just get the samplers for initialization"""
+    """ This function gets the samplers for initialization.  The purpose is so
+    the user can specify the total number of data points, and have that number broken
+    up into a validation set of indices, and a "init_size" specified initial
+    training set.  Foor the purposes of this problem the training set is usually
+    small and the remaining "unlabeled" dataset is rather large, for clear changes
+    using the active learning policies.
+    ---------
+    Args: total_len; int, total number of examples in dataset in question.
+          init_size; int, desired initial number of points in the training set.
+          val_size; int, desired number of points in the validation set.
+          random_seed; int, random seed value for sampling.
+    ---------
+    Returns: train_sampler; a SubsetRandomSampler of length init_size
+             unlabeled_sampler; a SubsetRandomSampler of length total_len-init_size-val_size
+             val_sampler; a SubsetRandomSampler of length val_size
+             init_labels_idx; list of the indices of the training samples
+             unlabeled_idx; list of the inidices of the "unlabeled" samples.
+    """
     if random_seed:
         np.random.seed(random_seed)
     # Get Indices for validation and for initial random training sample
@@ -59,6 +76,10 @@ def setup_data_loaders(batch_size=8, starting_size=64, val_size=10000, use_cuda=
 def get_xy_split(loader):
     """ Get the x,y split for a dataloader
     NOTE: this assumes the data is in the form (x,y) in the dataloader
+    -------
+    Args: DataLoader object ... see NOTE above
+    -------
+    Returns: tuple of Tensor x, Tensor y
     """
     temp_x,temp_y = [],[]
     for tx,ty in loader:
@@ -69,7 +90,15 @@ def get_xy_split(loader):
 # Get dataloader from sets of inidces
 def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
     """ This method takes in the old indices and the new indices requested by the model and
-    generates a dataloader based on the union of the set of the two arrays of indices."""
+    generates a dataloader based on the union of the set of the two arrays of indices.
+    -------
+    Args: labels_idx; array or list of original indices of training points
+          new_labels_idx; array or list of new points to get labels for (chosen by policy)
+          base_data; the dataset (a torch DataSet object)
+          batch_size; int, the desired batch size of the new DataLoader
+    -------
+    Returns: torch DataLoader object with the old indices of data and the new indices.
+    """
     all_labels_idx = np.append(labels_idx, new_labels_idx)
     new_sampler = SubsetRandomSampler(all_labels_idx)
     new_loader = torch.utils.data.DataLoader(dataset=base_data, batch_size=batch_size, sampler=new_sampler)
@@ -77,7 +106,16 @@ def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
 
 # Accuracy
 def accuracy(model,x,y):
-    """ Get classification accuracy """
+    """ Get classification accuracy for a torch model (or any function that can take
+    torch Variables as input).
+    ---------
+    Args: model; a torch model, or any function that can take torch Variable inputs
+          x; torch Tensor object to be made into a Variable before running through
+                model.
+          y; torch Tensor with outputs of classification for comparison with model(x)
+    ---------
+    Returns: float; the classification accuracy of the model.
+    """
     probs = model(Variable(x))
     _,ypred = torch.max(probs,1)
     acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
