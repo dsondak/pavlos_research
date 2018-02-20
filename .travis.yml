@@ -1,0 +1,12 @@
+language: python
+python:
+    - "3.6"
+before_install:
+    - pip install pytest pytest-cov
+    - pip install coveralls
+env:
+    - TEST_DIR=src/tests 
+script:
+    - cd $TEST_DIR && py.test
+after_success:
+    - coveralls
