@@ -98,11 +98,12 @@ def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
           batch_size; int, the desired batch size of the new DataLoader
     -------
     Returns: torch DataLoader object with the old indices of data and the new indices.
+             numpy array with the aggreated indices of the two passed lists
     """
     all_labels_idx = np.append(labels_idx, new_labels_idx)
     new_sampler = SubsetRandomSampler(all_labels_idx)
     new_loader = torch.utils.data.DataLoader(dataset=base_data, batch_size=batch_size, sampler=new_sampler)
-    return new_loader
+    return new_loader, all_labels_idx
 
 # Accuracy
 def accuracy(model,x,y):
@@ -134,5 +135,9 @@ def get_requested_points(model, unlab_loader, policy, num_points=16):
     Returns: array of length "num_points" that represent the indices of the points
                 to be labeled.
     """
-    unlab_preds = model(unlab_loader)
+    if len(unlab_loader) != 1:
+        raise ValueError('The unlabeled loader must be one batch of the \
+                            whole size of the unlabeled data.')
+    for x,y in unlab_loader:
+        unlab_preds = model(x)
     return policy(unlab_preds, num_points)

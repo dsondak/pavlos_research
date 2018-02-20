@@ -4,7 +4,7 @@ import active_learning as al
 
 def test_get_requested_points():
     mod = np.vectorize(lambda x: x**2+1)
-    unlab_loader = [i/2 for i in range(1,5)]
+    unlab_loader = [([i/2 for i in range(1,5)],[1,1,1,1])]
     policy = lambda x,n: x+n
     result = al.get_requested_points(mod, unlab_loader, policy)
     assert(np.allclose(result,np.array([17.25,18.,19.25,21.])))
@@ -19,7 +19,7 @@ def test_get_dataloader():
     x = torch.Tensor(np.array([[1,2,3],[7,7,7],[4,5,6]]))
     y = torch.Tensor(np.array([1,2,5]))
     dset = torch.utils.data.dataset.TensorDataset(x,y)
-    data_load = al.get_dataloader([0],[2],dset,batch_size=1)
+    data_load,_ = al.get_dataloader([0],[2],dset,batch_size=1)
     truths = []
     for x_t,y_t in data_load:
         if x_t.equal(torch.Tensor([1,2,3]).view(1,-1)) and y_t.numpy()[0]==1:
