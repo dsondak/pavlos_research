@@ -57,5 +57,5 @@ def test_boundary_proximity():
     assert(np.allclose(res,[0]))
 
 def test_n_argmax():
-    pass
-    
+    a = np.array([4,3,2,1,7])
+    assert(np.allclose(al.n_argmax(a,size=2),[4,0]))
