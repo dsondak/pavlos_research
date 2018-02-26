@@ -161,6 +161,14 @@ def boundary_proximity(unlab_preds,num_points):
     diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=num_points)
     return diffs_closest_to_zero
 
+def max_entropy(pred_y, n):
+    """ Source of math: https://www.cs.cmu.edu/~tom/10701_sp11/recitations/Recitation_13.pdf """
+    probs = torch.exp(pred_y.data)
+    prob_logprob = probs * pred_y.data
+    max_ent = -torch.sum(prob_logprob, dim=1)
+    max_ent_idxs = n_argmax(max_ent, size=n)
+    return max_ent_idxs
+
 def n_argmax(a,size):
     """ Find the n highest argmaxes of a 1D array or torch FloatTensor. """
     if type(a) == torch.FloatTensor:
