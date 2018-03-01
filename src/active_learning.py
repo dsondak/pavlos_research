@@ -10,11 +10,15 @@ import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
 # import pyro
 
-
-# TODO make flag for CUDA 
+# TODO debug for potential cuda probs
 class ExperiAL(object):
+    """ Active Learning Experiment object """
     def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer):
-        self.model = model
+        self.use_cuda = torch.cuda.is_available()
+        if self.use_cuda:
+            self.model = model.cuda()
+        else:
+            self.model = model
         self.train_x = train_x
         self.train_y = train_y
         self.val_x = val_x
@@ -23,14 +27,26 @@ class ExperiAL(object):
         self.optimizer = optimizer
 
     def _train(self, x, y, epochs=10, batch_size=8, shuffle=True):
+        """ Function to train the model on specified data for a number of epochs
+        --------
+        Args: x; torch FloatTensor to train on
+              y; torch LongTensor to train on
+              epochs; int, obviously the number of epochs to train
+        --------
+        Returns: list of iterations, losses per iteration
+        """
         losses,itrs = [],0
         tensor_dataset = torch.utils.data.dataset.TensorDataset(x, y)
         tr_loader = torch.utils.data.DataLoader(dataset=tensor_dataset, batch_size=batch_size, shuffle=shuffle)
 
         for epoch in range(epochs):
             for i,(batch_x,batch_y) in enumerate(tr_loader):
-                batch_x = Variable(batch_x)
-                batch_y = Variable(batch_y)
+                if self.use_cuda:
+                    batch_x = Variable(batch_x.cuda())
+                    batch_y = Variable(batch_y.cuda())
+                else:
+                    batch_x = Variable(batch_x)
+                    batch_y = Variable(batch_y)
 
                 y_pred = self.model(batch_x)
                 loss = self.loss_func(y_pred, batch_y)
@@ -40,12 +56,23 @@ class ExperiAL(object):
                 self.optimizer.step()
 
                 itrs+=1
-                losses.append(loss.data.numpy()[0])
+                if self.use_cuda:
+                    losses.append(loss.data.cpu().numpy()[0])
+                else:
+                    losses.append(loss.data.numpy()[0])
 
         return list(range(itrs)), losses
 
     def active_learn(self, policy, meta_epochs=10, epochs_per_train=10, npoints=20, batch_size=8, random_seed=832):
-        """ Active learning based on a specified policy. """
+        """ Active learning based on a specified policy.
+        -------
+        Args: policy; str, specifies which policy to perform
+            .
+            .
+            .
+        -------
+        Returns: meta_epochs as a list, validation accuracy per meta epoch
+        """
         total_acc = []
         unlab_x,unlab_y,lab_x,lab_y = get_uniform_split(self.train_x, self.train_y, n=npoints, random_seed=random_seed)
 
@@ -112,9 +139,10 @@ def boundary_policy(pred_y, n):
     diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=n)
     return diffs_closest_to_zero
 
-# TODO docs
 def max_entropy_policy(pred_y, n):
-    """ docs"""
+    """ Take the maximum entropy of the resulting probabilities.
+    NOTE: favors situations where we are generally confused about everything
+    """
     probs = torch.exp(pred_y.data)
     prob_logprob = probs * pred_y.data
     max_ent = -torch.sum(prob_logprob, dim=1)
@@ -122,36 +150,49 @@ def max_entropy_policy(pred_y, n):
     return max_ent_idxs
 
 def least_confidence_policy(pred_y, n):
+    """ Take the least confidence of the resulting probabilities.
+    NOTE: favors situations where we are generally confused about everything
+    """
     maxes = torch.max(pred_y.data,1)[0]
     least_conf = 1.0-maxes
     least_conf_idx = n_argmax(least_conf, size=n)
     return least_conf_idx
 
-# TODO make this efficient - sampling without replacement to fill the quota, and then go random
 def uniform_policy(pred_y, n):
+    """ Sample uniformly from the predictions on the unlabeded points"""
     cut = n%10
     times = n//10
-    _,preds = torch.max(pred_y,dim=1)
     output = []
-    for res in range(10): # number of classes
-        pred_idx = [idx for idx, elm in enumerate(preds) if elm.data.numpy()[0] == res]
-        if len(pred_idx) < (times+1):
-            if res<cut:
-                output.extend(np.random.choice(range(len(preds)),size=times+1))
-            else:
-                output.extend(np.random.choice(range(len(preds)),size=times))
-            continue
-        if res<cut:
-            output.extend(np.random.choice(pred_idx, size=times+1))
-        else:
-            output.extend(np.random.choice(pred_idx, size=times))
+    _,preds = torch.max(pred_y,dim=1)
+    num_points, sampler = len(preds), np.array(range(len(preds)))
+    mixed_idxs = np.random.choice(sampler, size=num_points, replace=False)
+    class_counter = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,'rand':0}
+    for mi in mixed_idxs:
+        pred_class = preds[mi].data.numpy()[0]
+
+        if class_counter[pred_class]<times:
+            output.append(mi)
+            class_counter[pred_class]+=1
+        elif class_counter['rand']<cut:
+            output.append(mi)
+            class_counter['rand']+=1
+
+        if sum(class_counter.values())==n:
+            break
+
     return np.array(output)
 
 #############################################################
 
 # TODO: move to utils
 def n_argmax(a,size):
-    """ Find the n highest argmaxes of a 1D array or torch FloatTensor. """
+    """ Find the n highest argmaxes of a 1D array or torch FloatTensor.
+    -------
+    Args: a; FloatTensor or numpy arrays
+          size; int, the number of argmaxes you want
+    -------
+    Returns: numpy array
+    """
     if type(a) == torch.FloatTensor:
         a = a.numpy()
     else:
@@ -195,6 +236,16 @@ def get_xy_split(loader):
     return torch.cat(temp_x), torch.cat(temp_y)
 
 def get_idx_split(data_x, data_y, idx):
+    """ For some torch Tensors data_x and data_y return one set of tensors
+    for every index in the list passes and another set that is the compliment of that.
+    -------
+    Args: data_x; torch Tensor, all x values
+          data_y; torch Tensor, all y values
+          idx; numpy array, the indexes we want to get a seperate torch tensor pair
+            for. Also return the compliment so no data points are lost
+    -------
+    Returns: tuple; compliment tensor x, tensor y, index tensor x tensor y
+    """
     x1_tensor = torch.cat([data_x[i].view(-1,28,28) for i in idx])
     y1_tensor = torch.LongTensor([data_y[i] for i in idx])
     x2_tensor = torch.cat([data_x[i].view(-1,28,28) for i in range(len(data_y)) if i not in idx])
@@ -202,6 +253,16 @@ def get_idx_split(data_x, data_y, idx):
     return x2_tensor, y2_tensor, x1_tensor, y1_tensor
 
 def get_uniform_split(train_x, train_y, n, random_seed=1823):
+    """ Wrapper for get_idx_split that ensures we have a uniform initial sample
+    based on the y labels
+    --------
+    Args: train_x; torch Tensor of all x
+          train_y; torch Tensor for all y
+          n; int, n the number of points to sample with a uniform dist on y
+          random_seed; int, the random seed
+    --------
+    Returns: tuple; compliment tensor x, tensor y, index tensor x tensor y
+    """
     np.random.seed(random_seed)
     cut = n%10
     times = n//10
@@ -215,7 +276,15 @@ def get_uniform_split(train_x, train_y, n, random_seed=1823):
     return get_idx_split(train_x, train_y, output)
 
 def get_dataset_split(train_set, other_size=10000, random_seed=1992):
-    """ DOCS"""
+    """ Function to split either a Dataset torch object or a tuole of two torch
+    Tensors randomly.
+    ------
+    Args: train_set; either a torch Dataset or a tuple of two torch Tensors, x,y respectively
+          other_size; int, the size of the split (returned after the compliment)
+          random_seed; int, the random seed
+    ------
+    Returns: tuple; compliment tensor x, tensor y, index tensor x tensor y
+    """
     np.random.seed(random_seed)
     if isinstance(train_set, tuple):
         msk = np.random.choice(range(len(train_set[1])),size=other_size, replace=False)
