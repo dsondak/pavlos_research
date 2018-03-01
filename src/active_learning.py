@@ -85,10 +85,10 @@ class ExperiAL(object):
             lab_x, lab_y = torch.cat([lab_x, addtl_x]), torch.cat([lab_y, addtl_y])
 
             # Get accuracy of the model
-            total_acc.append(accuracy(self.model, self.val_x, self.val_y))
+            total_acc.append(accuracy(self.model, self.val_x, self.val_y, self.use_cuda))
 
         return list(range(meta_epochs)), total_acc
-
+# TODO finish cuda implementation
     def get_req_points(self, unlab_x, unlab_y, policy, n, random_seed=13):
         """ This function gets the number of points requested based on the function
         "policy" that is passed. "policy" can be any function to test.
@@ -103,7 +103,10 @@ class ExperiAL(object):
                     to be labeled.
         """
         if policy!='random':
-            pred_y = self.model.forward(Variable(unlab_x))
+            if self.use_cuda:
+                pred_y = self.model.forward(Variable(unlab_x.cuda()))
+            else:
+                pred_y = self.model.forward(Variable(unlab_x))
             if policy=='boundary':
                 fn = boundary_policy
             elif policy=='uniform':
@@ -112,7 +115,7 @@ class ExperiAL(object):
                 fn = max_entropy_policy
             elif policy=='conf':
                 fn = least_confidence_policy
-            idxs = fn(pred_y, n=n)
+            idxs = fn(pred_y, n=n, use_cuda=self.use_cuda)
             new_u_x, new_u_y, add_x, add_y = get_idx_split(unlab_x, unlab_y, idxs)
         else:
             new_u_x, new_u_y, add_x, add_y = get_dataset_split((unlab_x,unlab_y), other_size=n, random_seed=random_seed)
@@ -120,7 +123,7 @@ class ExperiAL(object):
 
 #################### POLICIES ###########################
 
-def boundary_policy(pred_y, n):
+def boundary_policy(pred_y, n, use_cuda=False):
     """ Takes in a torch Variable predictions and outputs the difference in the largest output of the
     model and the next closest.  The smaller this number the closer the prediction is to the boundary.
     This function works by finding the max of the input predictions and then subtracting that value
@@ -136,29 +139,38 @@ def boundary_policy(pred_y, n):
     maxes, _ = torch.max(pred_y,dim=1)
     centered_around_max = pred_y.data.sub(maxes.data.view(-1,1).expand_as(pred_y.data))
     closest_col_to_zero = torch.sort(centered_around_max,dim=1)[0][:,-2]
-    diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=n)
+    if use_cuda:
+        diffs_closest_to_zero = n_argmax(closest_col_to_zero.cpu(), size=n)
+    else:
+        diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=n)
     return diffs_closest_to_zero
 
-def max_entropy_policy(pred_y, n):
+def max_entropy_policy(pred_y, n, use_cuda=False):
     """ Take the maximum entropy of the resulting probabilities.
     NOTE: favors situations where we are generally confused about everything
     """
     probs = torch.exp(pred_y.data)
     prob_logprob = probs * pred_y.data
     max_ent = -torch.sum(prob_logprob, dim=1)
-    max_ent_idxs = n_argmax(max_ent, size=n)
+    if use_cuda:
+        max_ent_idxs = n_argmax(max_ent.cpu(), size=n)
+    else:
+        max_ent_idxs = n_argmax(max_ent, size=n)
     return max_ent_idxs
 
-def least_confidence_policy(pred_y, n):
+def least_confidence_policy(pred_y, n, use_cuda=False):
     """ Take the least confidence of the resulting probabilities.
     NOTE: favors situations where we are generally confused about everything
     """
     maxes = torch.max(pred_y.data,1)[0]
     least_conf = 1.0-maxes
-    least_conf_idx = n_argmax(least_conf, size=n)
+    if use_cuda:
+        least_conf_idx = n_argmax(least_conf.cpu(), size=n)
+    else:
+        least_conf_idx = n_argmax(least_conf, size=n)
     return least_conf_idx
 
-def uniform_policy(pred_y, n):
+def uniform_policy(pred_y, n, use_cuda=False):
     """ Sample uniformly from the predictions on the unlabeded points"""
     cut = n%10
     times = n//10
@@ -168,7 +180,10 @@ def uniform_policy(pred_y, n):
     mixed_idxs = np.random.choice(sampler, size=num_points, replace=False)
     class_counter = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,'rand':0}
     for mi in mixed_idxs:
-        pred_class = preds[mi].data.numpy()[0]
+        if use_cuda:
+            pred_class = preds[mi].data.cpu().numpy()[0]
+        else:
+            pred_class = preds[mi].data.numpy()[0]
 
         if class_counter[pred_class]<times:
             output.append(mi)
@@ -204,7 +219,7 @@ def n_argmax(a,size):
     return a.argsort()[-size:][::-1]
 
 # Accuracy
-def accuracy(model,x,y):
+def accuracy(model,x,y,use_cuda=False):
     """ Get classification accuracy for a torch model (or any function that can take
     torch Variables as input).
     ---------
@@ -215,10 +230,16 @@ def accuracy(model,x,y):
     ---------
     Returns: float; the classification accuracy of the model.
     """
-    probs = model(Variable(x))
-    _,ypred = torch.max(probs,1)
-    acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
-    return acc
+    if use_cuda:
+        probs = model(Variable(x.cuda()))
+        _,ypred = torch.max(probs,1)
+        return (ypred.data.cpu().numpy()==y.cpu().numpy()).sum()/len(y)
+    else:
+        probs = model(Variable(x))
+        _,ypred = torch.max(probs,1)
+        return (ypred.data.numpy()==y.numpy()).sum()/len(y)
+    # acc = (ypred.data.numpy()==y.numpy()).sum()/len(y)
+    # return acc
 
 # Get the x,y seperation TODO move to utils
 def get_xy_split(loader):

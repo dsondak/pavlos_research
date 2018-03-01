@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def plot_results(meta_epochs, accs, labs):
-    """ Plot the results from the run of multiple policies sampling distributions""" 
+    """ Plot the results from the run of multiple policies sampling distributions"""
     itrs = np.array(list(range(meta_epochs)))
     means, errs = [], []
     for ac in accs:
@@ -20,3 +20,4 @@ def plot_results(meta_epochs, accs, labs):
     plt.ylabel('Accuracy')
     plt.legend()
     sns.despine()
+    plt.show()
