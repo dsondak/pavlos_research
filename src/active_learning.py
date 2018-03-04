@@ -13,57 +13,70 @@ from torch.utils.data.sampler import SubsetRandomSampler
 # TODO debug for potential cuda probs
 class ExperiAL(object):
     """ Active Learning Experiment object """
-    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer):
+    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, params='default',random_seed=128):
         self.use_cuda = torch.cuda.is_available()
-        if self.use_cuda:
-            self.model = model.cuda()
-        else:
-            self.model = model
+        self.model = model.cuda() if self.use_cuda else model
         self.train_x = train_x
         self.train_y = train_y
         self.val_x = val_x
         self.val_y = val_y
-        self.loss_func = loss_func
+        self.loss_func = loss_func.cuda() if self.use_cuda else loss_func
         self.optimizer = optimizer
+        if params=='default':
+            self.set_params(meta_epochs=1, npoints=20, batch_size=10, epochs_per_train=5, shuffle=True)
+        elif isinstance(params, dict):
+            self.set_params(meta_epochs=params['meta_epochs'], npoints=params['npoints'], \
+                            batch_size=params['batch_size'], epochs_per_train=params['epochs_per_train'])
+        unlab_x,unlab_y,lab_x,lab_y = get_uniform_split(self.train_x, self.train_y, n=self.npoints, random_seed=random_seed)
+        self.unlab_x = unlab_x.cuda() if self.use_cuda else unlab_x
+        self.unlab_y = unlab_y.cuda() if self.use_cuda else unlab_y
+        self.lab_x = lab_x.cuda() if self.use_cuda else lab_x
+        self.lab_y = lab_y.cuda() if self.use_cuda else lab_y
 
-    def _train(self, x, y, epochs=10, batch_size=8, shuffle=True):
+
+    def set_params(self, **kwargs):
+        """ Set active learning parameters """
+        keys = kwargs.keys()
+        if 'batch_size' in keys:
+            self.batch_size = kwargs['batch_size']
+        if 'epochs_per_train' in keys:
+            self.ept = kwargs['epochs_per_train']
+        if 'npoints' in keys:
+            self.npoints = kwargs['npoints']
+        if 'meta_epochs' in keys:
+            self.meta_epochs = kwargs['meta_epochs']
+        if 'shuffle' in keys:
+            self.shuffle = kwargs['shuffle']
+
+    def _train(self, x, y):
         """ Function to train the model on specified data for a number of epochs
         --------
         Args: x; torch FloatTensor to train on
               y; torch LongTensor to train on
-              epochs; int, obviously the number of epochs to train
         --------
         Returns: list of iterations, losses per iteration
         """
         losses,itrs = [],0
         tensor_dataset = torch.utils.data.dataset.TensorDataset(x, y)
-        tr_loader = torch.utils.data.DataLoader(dataset=tensor_dataset, batch_size=batch_size, shuffle=shuffle)
-
-        for epoch in range(epochs):
+        tr_loader = torch.utils.data.DataLoader(dataset=tensor_dataset, batch_size=self.batch_size,
+                                                shuffle=self.shuffle, pin_memory=self.use_cuda)
+        for epoch in range(self.ept):
             for i,(batch_x,batch_y) in enumerate(tr_loader):
-                if self.use_cuda:
-                    batch_x = Variable(batch_x.cuda())
-                    batch_y = Variable(batch_y.cuda())
-                else:
-                    batch_x = Variable(batch_x)
-                    batch_y = Variable(batch_y)
 
-                y_pred = self.model(batch_x)
-                loss = self.loss_func(y_pred, batch_y)
+                y_pred = self.model(Variable(batch_x))
+                loss = self.loss_func(y_pred, Variable(batch_y))
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
                 itrs+=1
-                if self.use_cuda:
-                    losses.append(loss.data.cpu().numpy()[0])
-                else:
-                    losses.append(loss.data.numpy()[0])
+                next_loss = loss.data.cpu().numpy()[0] if self.use_cuda else loss.data.numpy()[0]
+                losses.append(next_loss)
 
         return list(range(itrs)), losses
 
-    def active_learn(self, policy, meta_epochs=10, epochs_per_train=10, npoints=20, batch_size=8, random_seed=832):
+    def active_learn(self, policy, random_seed=832):
         """ Active learning based on a specified policy.
         -------
         Args: policy; str, specifies which policy to perform
@@ -74,22 +87,20 @@ class ExperiAL(object):
         Returns: meta_epochs as a list, validation accuracy per meta epoch
         """
         total_acc = []
-        unlab_x,unlab_y,lab_x,lab_y = get_uniform_split(self.train_x, self.train_y, n=npoints, random_seed=random_seed)
-
-        for e in range(meta_epochs):
+        for e in range(self.meta_epochs):
             # Train the model
-            itr, losses = self._train(lab_x, lab_y, epochs=epochs_per_train, batch_size=batch_size)
+            itr, losses = self._train(self.lab_x, self.lab_y)
 
             # Get the next points to label
-            unlab_x,unlab_y, addtl_x, addtl_y = self.get_req_points(unlab_x, unlab_y, policy=policy, n=npoints, random_seed=random_seed)
-            lab_x, lab_y = torch.cat([lab_x, addtl_x]), torch.cat([lab_y, addtl_y])
+            self.unlab_x, self.unlab_y, addtl_x, addtl_y = self.get_req_points(policy=policy, random_seed=random_seed)
+            self.lab_x, self.lab_y = torch.cat([self.lab_x, addtl_x]), torch.cat([self.lab_y, addtl_y])
 
             # Get accuracy of the model
             total_acc.append(accuracy(self.model, self.val_x, self.val_y, self.use_cuda))
 
-        return list(range(meta_epochs)), total_acc
-# TODO finish cuda implementation
-    def get_req_points(self, unlab_x, unlab_y, policy, n, random_seed=13):
+        return list(range(self.meta_epochs)), total_acc
+
+    def get_req_points(self, policy, random_seed=13):
         """ This function gets the number of points requested based on the function
         "policy" that is passed. "policy" can be any function to test.
         ---------
@@ -103,10 +114,7 @@ class ExperiAL(object):
                     to be labeled.
         """
         if policy!='random':
-            if self.use_cuda:
-                pred_y = self.model.forward(Variable(unlab_x.cuda()))
-            else:
-                pred_y = self.model.forward(Variable(unlab_x))
+            pred_y = self.model(Variable(self.unlab_x))
             if policy=='boundary':
                 fn = boundary_policy
             elif policy=='uniform':
@@ -115,10 +123,10 @@ class ExperiAL(object):
                 fn = max_entropy_policy
             elif policy=='conf':
                 fn = least_confidence_policy
-            idxs = fn(pred_y, n=n, use_cuda=self.use_cuda)
-            new_u_x, new_u_y, add_x, add_y = get_idx_split(unlab_x, unlab_y, idxs)
+            idxs = fn(pred_y, n=self.npoints, use_cuda=self.use_cuda)
+            new_u_x, new_u_y, add_x, add_y = get_idx_split(self.unlab_x, self.unlab_y, idxs)
         else:
-            new_u_x, new_u_y, add_x, add_y = get_dataset_split((unlab_x,unlab_y), other_size=n, random_seed=random_seed)
+            new_u_x, new_u_y, add_x, add_y = get_dataset_split((self.unlab_x,self.unlab_y), other_size=self.npoints, random_seed=random_seed)
         return new_u_x, new_u_y, add_x, add_y
 
 #################### POLICIES ###########################
@@ -138,12 +146,9 @@ def boundary_policy(pred_y, n, use_cuda=False):
     """
     maxes, _ = torch.max(pred_y,dim=1)
     centered_around_max = pred_y.data.sub(maxes.data.view(-1,1).expand_as(pred_y.data))
-    closest_col_to_zero = torch.sort(centered_around_max,dim=1)[0][:,-2]
-    if use_cuda:
-        diffs_closest_to_zero = n_argmax(closest_col_to_zero.cpu(), size=n)
-    else:
-        diffs_closest_to_zero = n_argmax(closest_col_to_zero, size=n)
-    return diffs_closest_to_zero
+    closest_to_zero = torch.sort(centered_around_max,dim=1)[0][:,-2]
+    diffs_zero = n_argmax(closest_to_zero.cpu(), size=n) if use_cuda else n_argmax(closest_to_zero, size=n)
+    return diffs_zero
 
 def max_entropy_policy(pred_y, n, use_cuda=False):
     """ Take the maximum entropy of the resulting probabilities.
@@ -152,10 +157,7 @@ def max_entropy_policy(pred_y, n, use_cuda=False):
     probs = torch.exp(pred_y.data)
     prob_logprob = probs * pred_y.data
     max_ent = -torch.sum(prob_logprob, dim=1)
-    if use_cuda:
-        max_ent_idxs = n_argmax(max_ent.cpu(), size=n)
-    else:
-        max_ent_idxs = n_argmax(max_ent, size=n)
+    max_ent_idxs = n_argmax(max_ent.cpu(), size=n) if use_cuda else n_argmax(max_ent, size=n)
     return max_ent_idxs
 
 def least_confidence_policy(pred_y, n, use_cuda=False):
@@ -164,10 +166,7 @@ def least_confidence_policy(pred_y, n, use_cuda=False):
     """
     maxes = torch.max(pred_y.data,1)[0]
     least_conf = 1.0-maxes
-    if use_cuda:
-        least_conf_idx = n_argmax(least_conf.cpu(), size=n)
-    else:
-        least_conf_idx = n_argmax(least_conf, size=n)
+    least_conf_idx = n_argmax(least_conf.cpu(), size=n) if use_cuda else n_argmax(least_conf, size=n)
     return least_conf_idx
 
 def uniform_policy(pred_y, n, use_cuda=False):
@@ -180,10 +179,7 @@ def uniform_policy(pred_y, n, use_cuda=False):
     mixed_idxs = np.random.choice(sampler, size=num_points, replace=False)
     class_counter = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,'rand':0}
     for mi in mixed_idxs:
-        if use_cuda:
-            pred_class = preds[mi].data.cpu().numpy()[0]
-        else:
-            pred_class = preds[mi].data.numpy()[0]
+        pred_class = preds[mi].data.cpu().numpy()[0] if use_cuda else preds[mi].data.numpy()[0]
 
         if class_counter[pred_class]<times:
             output.append(mi)
