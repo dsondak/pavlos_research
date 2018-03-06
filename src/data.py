@@ -8,6 +8,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
+from scipy.io import loadmat
 
 def _get_samplers(total_len,init_size,val_size=10000, random_seed=1492):
     """ This function gets the samplers for initialization.  The purpose is so
@@ -87,3 +88,17 @@ def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
     new_sampler = SubsetRandomSampler(all_labels_idx)
     new_loader = torch.utils.data.DataLoader(dataset=base_data, batch_size=batch_size, sampler=new_sampler)
     return new_loader, all_labels_idx
+
+def get_usps(file_path):
+    """ DOCS """
+    usps = loadmat(file_path)
+    assert(usps['data'].shape==(256,1100,10))
+
+    data,resp = [],[]
+    for digit in range(10):
+        for elm in range(1100):
+            data.append(usps['data'][:,elm,digit].reshape(16,16))
+            r = digit+1 if digit != 9 else 0
+            resp.append(r)
+    return torch.utils.data.TensorDataset(torch.Tensor(np.array(data)).view(-1,1,16,16), torch.LongTensor(resp))
+    # return torch.Tensor(np.array(data)), torch.Tensor(np.array(r)))

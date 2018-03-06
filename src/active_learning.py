@@ -59,9 +59,11 @@ class ExperiAL(object):
         losses,itrs = [],0
         tensor_dataset = torch.utils.data.dataset.TensorDataset(x, y)
         tr_loader = torch.utils.data.DataLoader(dataset=tensor_dataset, batch_size=self.batch_size,
-                                                shuffle=self.shuffle, pin_memory=self.use_cuda)
+                                                shuffle=self.shuffle)
         for epoch in range(self.ept):
             for i,(batch_x,batch_y) in enumerate(tr_loader):
+                batch_x = batch_x.cuda() if self.use_cuda else batch_x
+                batch_y = batch_y.cuda() if self.use_cuda else batch_y
 
                 y_pred = self.model(Variable(batch_x))
                 loss = self.loss_func(y_pred, Variable(batch_y))
@@ -127,7 +129,10 @@ class ExperiAL(object):
             new_u_x, new_u_y, add_x, add_y = get_idx_split(self.unlab_x, self.unlab_y, idxs)
         else:
             new_u_x, new_u_y, add_x, add_y = get_dataset_split((self.unlab_x,self.unlab_y), other_size=self.npoints, random_seed=random_seed)
-        return new_u_x, new_u_y, add_x, add_y
+        if self.use_cuda:
+            return new_u_x.cuda(), new_u_y.cuda(), add_x.cuda(), add_y.cuda()
+        else:
+            return new_u_x, new_u_y, add_x, add_y
 
 #################### POLICIES ###########################
 
