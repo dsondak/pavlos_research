@@ -90,7 +90,7 @@ def get_dataloader(labels_idx, new_labels_idx, base_data, batch_size=8):
     new_loader = torch.utils.data.DataLoader(dataset=base_data, batch_size=batch_size, sampler=new_sampler)
     return new_loader, all_labels_idx
 
-def get_usps(file_path, pct_test, size=(16,16)):
+def get_usps(file_path, size=(28,28)):
     """ DOCS """
     usps = loadmat(file_path)
     assert(usps['data'].shape==(256,1100,10))
@@ -98,8 +98,11 @@ def get_usps(file_path, pct_test, size=(16,16)):
     data,resp = [],[]
     for digit in range(10):
         for elm in range(1100):
-            data.append(transforms.Resize(28*28)(Image.fromarray(usps['data'][:,elm,digit].reshape(16,16))))
+            img = Image.fromarray(usps['data'][:,elm,digit].reshape(16,16))
+            data.append(transforms.ToTensor()(transforms.Resize(size)(img)))
             r = digit+1 if digit != 9 else 0
             resp.append(r)
-    return torch.utils.data.TensorDataset(torch.Tensor(np.array(data)).view(-1,1,28*28), torch.LongTensor(resp))
-    # return torch.Tensor(np.array(data)), torch.Tensor(np.array(r)))
+
+    usps_x = torch.cat(data).view(-1,1,*size)
+    usps_y = torch.LongTensor(resp)
+    return torch.utils.data.TensorDataset(usps_x, usps_y)
