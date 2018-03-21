@@ -43,10 +43,10 @@ class Environment(object):
 
     def train_usps(self, epochs, model, opt):
         losses,n_itr = [],0
-        for e in tqdm(range(epochs)):
+        for e in range(epochs):
             for batch_x, batch_y in self.usps_train_loader:
-                batch_x = Variable(batch_x.cuda()) if use_cuda else Variable(batch_x)
-                batch_y = Variable(batch_y.cuda()) if use_cuda else Variable(batch_y)
+                batch_x = Variable(batch_x.cuda()) if self.use_cuda else Variable(batch_x)
+                batch_y = Variable(batch_y.cuda()) if self.use_cuda else Variable(batch_y)
 
                 result = model(batch_x)
                 loss = self.loss_func(result, batch_y)
@@ -57,7 +57,7 @@ class Environment(object):
                 n_itr+=1
                 losses.append(loss)
 
-        if use_cuda:
+        if self.use_cuda:
             losses = [itm.data.cpu().numpy()[0] for itm in losses]
         else:
             losses = [itm.data.numpy()[0] for itm in losses]
@@ -71,7 +71,7 @@ class Environment(object):
         m = Categorical(probs)
         action = m.sample()
         agent.saved_log_probs.append(m.log_prob(action))
-        return n.data[0]
+        return action.data[0]
 
     def finish_experiment(self, agent, optimizer, gamma=0.99):
         """ after the training episode is done, we can finally backprop over the expectation of the rewards. """
@@ -117,7 +117,7 @@ class Environment(object):
 
     def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, rtype='active', lr=0.01):
         running_reward = 1.0
-        policies_chosen, rewards_total = [],[]
+        policies_chosen, rewards_total,accs_total = [],[],[]
         for i_exp in tqdm(range(n_experiments)):
             ### Reset the envorinment
             experiment, model_try, optimizer_try = self.reset_env(lr=lr, reset_type=rtype, usps_init_epochs=1)
@@ -127,23 +127,32 @@ class Environment(object):
             state = model_try(Variable(train_tensor))
 
             # Run the experiment up to training on 1000 points
-            policies,track_reward = [],[]
+            policies,track_reward,accs,rwd = [],[],[],0
             for t in range(self.al_itrs):
                 action = self.select_action(agent, state)
                 if policy_key[action]=='transfer':
                     _,_ = self.train_usps(self.ept, model_try, optimizer_try)
-                    _,_ = experiment._train(self.lab_x, self.lab_y)
-                    reward = al.accuracy(model_try, self.val_x, self.val_y)
-                elif policy_key[action]=='active':
-                    _, reward = experiment.active_learn(policy=policy_key[action])
+                    _,_ = experiment._train(experiment.lab_x, experiment.lab_y)
+                    acc = al.accuracy(model_try, self.val_x, self.val_y, self.use_cuda)
+                    accs.append(acc)
+                    #print('Transfer; acc:',reward, 'diff:',reward-rwd)
+                    reward, rwd = acc-rwd, acc
+                elif policy_key[action]!='transfer':
+                    _, _ = experiment.active_learn(policy=policy_key[action])
+                    _,_ = experiment._train(experiment.lab_x, experiment.lab_y)
+                    acc = al.accuracy(model_try, self.val_x, self.val_y, self.use_cuda)
+                    accs.append(acc)
+                    #print('Active; acc:',reward, 'diff:',reward-rwd)
+                    reward,rwd = acc-rwd, acc
                 policies.append(policy_key[action])
                 track_reward.append(reward)
                 state = model_try(Variable(train_tensor))
-                agent.rewards.append(reward[0])
+                agent.rewards.append(reward)
 
             policies_chosen.append(policies)
             rewards_total.append(np.array(track_reward))
+            accs_total.append(np.array(accs))
             running_reward = running_reward * 0.99 + t * 0.01
             self.finish_experiment(agent, optimizer_agent, gamma=0.99)
 
-        return policies_chosen, np.array(rewards_total)
+        return policies_chosen, np.array(rewards_total), np.array(accs_total)
