@@ -39,10 +39,10 @@ def viz_rl(pc,ac,idx,alp=0.7):
     plt.plot(range(me),accs+10,alpha=alp)
     sns.despine()
 
-def viz_rl_tl(pc,ac,idx,alp=0.7):
+def viz_rl_tl(pc,ac,idx,rwd=[],alp=0.7):
     """ plot the results of the experiment at [idx] in the pc (policies) and ac
     (accuracies) arrays """  
-    accs = ac.mean(axis=0)
+    #accs = ac.mean(axis=0)
     me = len(pc[idx])
     cmap= plt.get_cmap('tab10')
     labels= ['transfer','boundary']
@@ -53,5 +53,7 @@ def viz_rl_tl(pc,ac,idx,alp=0.7):
     #plt.scatter(range(me),[10.3]*me,c=[cmap(1) if i=='random' else cmap(0) for i in pc[idx]],alpha=alp)
     #plt.scatter(range(me),[10.4]*me,c=[cmap(1) if i=='max_entropy' else cmap(0) for i in pc[idx]],alpha=alp)
     plt.yticks([10,10.1], labels, rotation='horizontal')
-    plt.plot(range(me),accs+10,alpha=alp)
+    plt.plot(range(me),ac[idx,:]+10,alpha=alp)
+    if rwd!=[]:
+        plt.plot(range(me),rwd[idx,:]+10,alpha=alp)
     sns.despine()
