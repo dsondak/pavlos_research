@@ -115,7 +115,7 @@ class Environment(object):
         experiment.set_params(meta_epochs=1, npoints=self.npoints, batch_size=self.batch_size, epochs_per_train=self.ept)
         return experiment, model_try, optimizer_try
 
-    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, rtype='active', lr=0.01):
+    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, tar_cost=0.3,rtype='active', lr=0.01):
         running_reward = 1.0
         policies_chosen, rewards_total,accs_total = [],[],[]
         for i_exp in tqdm(range(n_experiments)):
@@ -136,14 +136,16 @@ class Environment(object):
                     acc = al.accuracy(model_try, self.val_x, self.val_y, self.use_cuda)
                     accs.append(acc)
                     #print('Transfer; acc:',reward, 'diff:',reward-rwd)
-                    reward, rwd = acc-rwd, acc
+                    #reward, rwd = acc-rwd, acc
+                    reward = acc
                 elif policy_key[action]!='transfer':
                     _, _ = experiment.active_learn(policy=policy_key[action])
                     _,_ = experiment._train(experiment.lab_x, experiment.lab_y)
                     acc = al.accuracy(model_try, self.val_x, self.val_y, self.use_cuda)
                     accs.append(acc)
                     #print('Active; acc:',reward, 'diff:',reward-rwd)
-                    reward,rwd = acc-rwd, acc
+                    #reward,rwd = acc-rwd, acc
+                    reward = acc - tar_cost
                 policies.append(policy_key[action])
                 track_reward.append(reward)
                 state = model_try(Variable(train_tensor))
