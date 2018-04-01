@@ -13,8 +13,8 @@ from torch.utils.data.sampler import SubsetRandomSampler
 # TODO debug for potential cuda probs
 class ExperiAL(object):
     """ Active Learning Experiment object """
-    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, params='default',random_seed=128):
-        self.use_cuda = torch.cuda.is_available()
+    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, use_cuda='def', params='default',random_seed=128):
+        self.use_cuda = torch.cuda.is_available() if use_cuda=='def' else False
         self.model = model.cuda() if self.use_cuda else model
         self.train_x = train_x
         self.train_y = train_y

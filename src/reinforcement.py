@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 # TODO docs for all 
 class Environment(object):
-    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, usps_data=None, params='default'):
-        self.use_cuda = torch.cuda.is_available()
+    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, usps_data=None, use_cuda='def', params='default'):
+        self.use_cuda = torch.cuda.is_available() if use_cuda=='def' else False 
         self.model = model.cuda() if self.use_cuda else model
         self.usps_train_loader = usps_data
         self.train_x = train_x
