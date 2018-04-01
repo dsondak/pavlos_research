@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 # TODO docs for all 
 class Environment(object):
-    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, usps_data=None, params='default'):
-        self.use_cuda = torch.cuda.is_available()
+    def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, usps_data=None, use_cuda='def', params='default'):
+        self.use_cuda = torch.cuda.is_available() if use_cuda=='def' else False 
         self.model = model.cuda() if self.use_cuda else model
         self.usps_train_loader = usps_data
         self.train_x = train_x
@@ -115,7 +115,7 @@ class Environment(object):
         experiment.set_params(meta_epochs=1, npoints=self.npoints, batch_size=self.batch_size, epochs_per_train=self.ept)
         return experiment, model_try, optimizer_try
 
-    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments,tar_cost=0.3, rtype='active', lr=0.01):
+    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, tar_cost=0.3,rtype='active', lr=0.01):
         running_reward = 1.0
         policies_chosen, rewards_total,accs_total = [],[],[]
         for i_exp in tqdm(range(n_experiments)):
