@@ -155,6 +155,6 @@ class Environment(object):
             rewards_total.append(np.array(track_reward))
             accs_total.append(np.array(accs))
             running_reward = running_reward * 0.99 + t * 0.01
-            self.finish_experiment(agent, optimizer_agent, gamma=0.99)
+            self.finish_experiment(agent, optimizer_agent, gamma=0.9)
 
         return policies_chosen, np.array(rewards_total), np.array(accs_total)
