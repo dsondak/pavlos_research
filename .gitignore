@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Ignore the astro_data folder with multi gb files 
+astro_data/
+
 # DS STORE
 .DS_Store
 
