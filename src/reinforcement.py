@@ -115,7 +115,7 @@ class Environment(object):
         experiment.set_params(meta_epochs=1, npoints=self.npoints, batch_size=self.batch_size, epochs_per_train=self.ept)
         return experiment, model_try, optimizer_try
 
-    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, tar_cost=0.3,rtype='active', lr=0.01):
+    def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, tar_cost=0.3,gamma=0.9,rtype='active', lr=0.01):
         running_reward = 1.0
         policies_chosen, rewards_total,accs_total = [],[],[]
         for i_exp in tqdm(range(n_experiments)):
@@ -155,6 +155,6 @@ class Environment(object):
             rewards_total.append(np.array(track_reward))
             accs_total.append(np.array(accs))
             running_reward = running_reward * 0.99 + t * 0.01
-            self.finish_experiment(agent, optimizer_agent, gamma=0.9)
+            self.finish_experiment(agent, optimizer_agent, gamma=gamma)
 
         return policies_chosen, np.array(rewards_total), np.array(accs_total)
