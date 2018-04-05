@@ -9,6 +9,7 @@ before_install:
     - pip install pandas
     - pip install scipy
     - pip install matplotlib
+    - pip install seaborn
 env:
     - TEST_DIR=src/tests 
 script:
