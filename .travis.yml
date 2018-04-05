@@ -8,6 +8,7 @@ before_install:
     - pip install torchvision
     - pip install pandas
     - pip install scipy
+    - pip install matplotlib
 env:
     - TEST_DIR=src/tests 
 script:
