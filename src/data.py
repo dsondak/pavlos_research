@@ -10,6 +10,11 @@ import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
 from scipy.io import loadmat
 from PIL import Image
+import os
+import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib import animation
 
 def _get_samplers(total_len,init_size,val_size=10000, random_seed=1492):
     """ This function gets the samplers for initialization.  The purpose is so
@@ -106,3 +111,78 @@ def get_usps(file_path, size=(28,28)):
     usps_x = torch.cat(data).view(-1,1,*size)
     usps_y = torch.LongTensor(resp)
     return torch.utils.data.TensorDataset(usps_x, usps_y)
+
+def make_movie(pkl_file, experiment, cost, gamma, labels, interval=200, figsize=(10,8),alp=0.7):
+    # Get data from pickle file 
+    pc = pkl_file['policy'][experiment]
+    ac = pkl_file['acc'][experiment]
+    rwd = pkl_file['reward'][experiment]
+    n_exp = len(pc)
+    al_itr = len(pc[0])
+    # First set up the figure, the axis, and the plot element we want to animate
+    fig = plt.figure(figsize=figsize)
+    ax = plt.axes(xlim=[-.3,al_itr+1],ylim=[9.7,11])
+    scat_1 = ax.scatter([], [],alpha=alp,animated=True)
+    scat_2 = ax.scatter([], [],alpha=alp,animated=True)
+    ax.set_yticks([10,10.1])
+    ax.set_yticklabels(labels)
+    plot_ac, = ax.plot([],[],alpha=alp)
+    plot_rd, = ax.plot([],[],alpha=alp)
+    ax.set_title(f'Reinforcement Learning experiment {experiment} with cost = {cost}')
+    ax.set_xlabel('Time')
+    sns.despine()
+
+    # initialization function: plot the background of each frame
+    def init():
+        scat_1.set_offsets(([], []))
+        scat_2.set_offsets(([], []))
+        plot_ac.set_data([], [])
+        plot_rd.set_data([], [])
+        return scat_1,scat_2,plot_ac,plot_rd
+
+    # animation function.  This is called sequentially
+    def animate(i):
+        me = len(pc[i])
+        x_val = np.array(range(me)).reshape(-1,1)
+        scat_1y = np.array([10]*me).reshape(-1,1)
+        scat_2y = np.array([10.1]*me).reshape(-1,1)
+        scat_1.set_array(np.array([1 if j=='transfer' else 0 for j in pc[i]]))
+        scat_2.set_array(np.array([1 if j=='boundary' else 0 for j in pc[i]]))
+        scat_1.set_offsets(np.append(x_val, scat_1y,axis=1))
+        scat_2.set_offsets(np.append(x_val, scat_2y,axis=1))
+        plot_ac.set_data(x_val, ac[i,:]+10)
+        plot_rd.set_data(x_val, rwd[i,:]+10)
+
+        return scat_1,scat_2,plot_ac,plot_rd
+
+    # call the animator.  blit=True means only re-draw the parts that have changed.
+    anim = animation.FuncAnimation(fig, animate, init_func=init,frames=n_exp, interval=interval)
+    return anim
+
+
+def pkl_to_movies(pkl_dir, out_dir, labels=['transfer','boundary']):
+    # use OS to look in the directory, get all pkl files and load them, 
+    # then make movies and put movies in our_dir with matching names 
+    for file in os.listdir(pkl_dir):
+        if file.endswith(".pkl"):
+            # Get arguments from pickle file
+            pkl_fn = file[:-4]
+            pkl_args = pkl_fn.split('_')
+            for a in pkl_args:
+                if a[:2]=='tc':
+                    cost = float(a[2:])
+                if a[0]=='g':
+                    gamma = float(a[5:])
+            with open(file,'rb') as pkl_file:
+                cur_pkl = pickle.load(pkl_file)
+
+            # Run through the pickle file whilst saving movies
+            n_experiments = len(cur_pkl['policy'])
+            for exp in range(n_experiments):
+                anim = make_movie(cur_pkl, exp, cost, gamma, labels)
+                out_fn = pkl_fn+f'_exp{exp}.mp4'
+                out_path = os.path.join(out_dir,out_fn)
+                anim.save(out_path, fps=20, extra_args=['-vcodec', 'libx264'])
+                print(f'Experiment {exp} saved in {out_dir}')
+
+
