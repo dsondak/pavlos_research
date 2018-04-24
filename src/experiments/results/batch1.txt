@@ -1,0 +1,8 @@
+sbatch sbatch.sh 0.3 0.9 50 150 6 False 
+sbatch sbatch.sh 0.3 0.95 50 150 6 False 
+sbatch sbatch.sh 0.3 0.99 50 150 6 False 
+sbatch sbatch.sh 0.3 0.8 50 150 6 False 
+sbatch sbatch.sh 0.3 0.7 50 150 6 False 
+sbatch sbatch.sh 0.3 0.6 50 150 6 False 
+sbatch sbatch.sh 0.3 0.5 50 150 6 False 
+sbatch sbatch.sh 0.3 0.4 50 150 6 False 

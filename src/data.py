@@ -113,6 +113,7 @@ def get_usps(file_path, size=(28,28)):
     return torch.utils.data.TensorDataset(usps_x, usps_y)
 
 def make_movie(pkl_file, experiment, cost, gamma, labels, interval=200, figsize=(10,8),alp=0.7):
+    """ Function to turn a pkl file - result of experiment - in to a mp4 movie file """
     # Get data from pickle file 
     pc = pkl_file['policy'][experiment]
     ac = pkl_file['acc'][experiment]
@@ -160,7 +161,9 @@ def make_movie(pkl_file, experiment, cost, gamma, labels, interval=200, figsize=
     return anim
 
 
-def pkl_to_movies(pkl_dir, out_dir, labels=['transfer','boundary']):
+def pkl_to_movies(pkl_dir, out_dir, fps=15, labels=['transfer','boundary']):
+    """ Use os tool to naviagte to the directory and convert all pickles in that 
+    directory to movies and save in the use specified out directory """
     # use OS to look in the directory, get all pkl files and load them, 
     # then make movies and put movies in our_dir with matching names 
     for file in os.listdir(pkl_dir):
@@ -173,7 +176,7 @@ def pkl_to_movies(pkl_dir, out_dir, labels=['transfer','boundary']):
                     cost = float(a[2:])
                 if a[0]=='g':
                     gamma = float(a[5:])
-            with open(file,'rb') as pkl_file:
+            with open(os.path.join(pkl_dir,file),'rb') as pkl_file:
                 cur_pkl = pickle.load(pkl_file)
 
             # Run through the pickle file whilst saving movies
@@ -182,7 +185,7 @@ def pkl_to_movies(pkl_dir, out_dir, labels=['transfer','boundary']):
                 anim = make_movie(cur_pkl, exp, cost, gamma, labels)
                 out_fn = pkl_fn+f'_exp{exp}.mp4'
                 out_path = os.path.join(out_dir,out_fn)
-                anim.save(out_path, fps=20, extra_args=['-vcodec', 'libx264'])
+                anim.save(out_path, fps=fps, extra_args=['-vcodec', 'libx264'])
                 print(f'Experiment {exp} saved in {out_dir}')
 
 

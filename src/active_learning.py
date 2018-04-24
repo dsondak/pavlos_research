@@ -8,9 +8,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
-# import pyro
 
-# TODO debug for potential cuda probs
 class ExperiAL(object):
     """ Active Learning Experiment object """
     def __init__(self, model, train_x, train_y, val_x, val_y, loss_func, optimizer, use_cuda='def', params='default',random_seed=128):
@@ -106,11 +104,7 @@ class ExperiAL(object):
         """ This function gets the number of points requested based on the function
         "policy" that is passed. "policy" can be any function to test.
         ---------
-        Args: model; any function that produces a valid array of length unlab_loader, but
-                normally a torch model.
-              unlab_loader; a torch DataLoader or other datatype of not using torch functionality
-              policy; a passed fucntion that decides which points are most important for labeling
-              num_points; int, the number of points indices we will return asking for labels.
+        Args: policy; a passed fucntion that decides which points are most important for labeling
         ---------
         Returns: array of length "num_points" that represent the indices of the points
                     to be labeled.

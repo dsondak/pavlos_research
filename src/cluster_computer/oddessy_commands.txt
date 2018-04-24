@@ -4,10 +4,10 @@
 ssh pblankley@odyssey.rc.fas.harvard.edu
 
 # Sync remote with local 
-rsync -avz pblankley@login.rc.fas.harvard.edu:~/essil/scripts4 ./
+rsync -avz pblankley@login.rc.fas.harvard.edu:~/experiments/ ./
 
 # Sync local with remote 
-rsync -avz ./ pblankley@login.rc.fas.harvard.edu:~/essil/scripts4
+rsync -avz ./ pblankley@login.rc.fas.harvard.edu:~/experiments/
 
 # Check job status
 squeue

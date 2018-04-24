@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 # Code to run experiments on Oddssey
 import sys
 ############# ARGUMENT STRUCTURE ##################
-_, tar_cost, gamma, al_itr, n_exp, rl_exps, use_cnn = sys.argv
+nm, tar_cost, gamma, al_itr, n_exp, rl_exps, use_cnn = sys.argv
 # Type conversions 
 tar_cost = float(tar_cost)
 gamma = float(gamma)
@@ -38,7 +39,7 @@ import reinforcement as rl
 import data as d 
 
 # Get raw datasets - MNIST
-train_set = dset.MNIST(root='./data', train=True, transform=transforms.ToTensor(),download=True)
+train_set = dset.MNIST(root='./data', train=True, transform=transforms.ToTensor(),download=False)
 test_set = dset.MNIST(root='./data', train=False, transform=transforms.ToTensor())
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=len(test_set),shuffle=False)
 
@@ -124,5 +125,5 @@ for tar_c in tar_costs:
     ac_all.append(ac)
 
 
-with open(f"rl_results_lr_len{al_itr}_tc{tar_cost}_gamma{gamma}.pkl", "wb" ) as file:
+with open(f"results/rl_results_lr_len{al_itr}_tc{tar_cost}_gamma{gamma}.pkl", "wb" ) as file:
     pickle.dump({'policy': pc_all,'reward': rwd_all, 'acc': ac_all},file,protocol=pickle.HIGHEST_PROTOCOL)
