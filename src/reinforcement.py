@@ -8,6 +8,7 @@ try:
 except:
     import active_learning as al
 from tqdm import tqdm
+import gc
 
 class Environment(object):
     """ environment for the RL learner to interact with and recieve reward from """
@@ -47,6 +48,7 @@ class Environment(object):
         """
         losses,n_itr = [],0
         for e in range(epochs):
+            gc.collect()
             for batch_x, batch_y in self.usps_train_loader:
                 batch_x = Variable(batch_x.cuda()) if self.use_cuda else Variable(batch_x)
                 batch_y = Variable(batch_y.cuda()) if self.use_cuda else Variable(batch_y)
@@ -127,6 +129,7 @@ class Environment(object):
         experiment = al.ExperiAL(model_try, self.train_x, self.train_y, self.val_x, self.val_y, self.loss_func, optimizer_try)
         # Note the meta epochs below (in AL) refers to the number of times we iterate a AL policy, only 1 obviously.
         experiment.set_params(meta_epochs=1, npoints=self.npoints, batch_size=self.batch_size, epochs_per_train=self.ept)
+        gc.collect()
         return experiment, model_try, optimizer_try
 
     def run_experiments(self, agent, optimizer_agent, policy_key, n_experiments, tar_cost=0.3,gamma=0.9,rtype='active', lr=0.01):
@@ -143,6 +146,7 @@ class Environment(object):
         running_reward = 1.0
         policies_chosen, rewards_total,accs_total = [],[],[]
         for i_exp in tqdm(range(n_experiments)):
+            gc.collect()
             ### Reset the envorinment
             experiment, model_try, optimizer_try = self.reset_env(lr=lr, reset_type=rtype, usps_init_epochs=1)
 
@@ -153,6 +157,7 @@ class Environment(object):
             # Run the experiment up to training on 1000 points
             policies,track_reward,accs,rwd = [],[],[],0
             for t in range(self.al_itrs):
+                gc.collect()
                 action = self.select_action(agent, state)
                 if policy_key[action]=='transfer':
                     _,_ = self.train_usps(self.ept, model_try, optimizer_try)

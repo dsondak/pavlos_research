@@ -8,6 +8,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
+import gc
 
 class ExperiAL(object):
     """ Active Learning Experiment object """
@@ -59,6 +60,7 @@ class ExperiAL(object):
         tr_loader = torch.utils.data.DataLoader(dataset=tensor_dataset, batch_size=self.batch_size,
                                                 shuffle=self.shuffle)
         for epoch in range(self.ept):
+            gc.collect()
             for i,(batch_x,batch_y) in enumerate(tr_loader):
                 batch_x = batch_x.cuda() if self.use_cuda else batch_x
                 batch_y = batch_y.cuda() if self.use_cuda else batch_y
