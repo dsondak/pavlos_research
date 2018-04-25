@@ -1,0 +1,18 @@
+# Useful Oddessy commands 
+
+# Login
+ssh pblankley@odyssey.rc.fas.harvard.edu
+
+# Sync remote with local 
+rsync -avz pblankley@login.rc.fas.harvard.edu:~/experiments/ ./
+
+# Sync local with remote 
+rsync -avz ./ pblankley@login.rc.fas.harvard.edu:~/experiments/
+
+# Check job status
+squeue
+
+# Run the script 
+sbatch <script>.sh
+
+# See the sbatch.sh file for an example of the script itself 
