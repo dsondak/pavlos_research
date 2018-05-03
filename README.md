@@ -26,4 +26,7 @@ The other big problem with this is consistently training on the source and then 
 
 I will no longer be able to give any time to this project, so it is going to have to sit in a state of partial completion. The next step in my mind is to restructure the problem itself.  I think the above problem is kind of ill-posed, especially for a reinforcement learner that is incentivised to learn just one policy most of the time. The better way to formulate it (I think) is to have a "budget" you are willing to spend and you record cost for getting new points on the target, and a very minute cost for training on the source.  You then can try to maximize accuracy for a given "budget."  This one runs into a little of the same problem above though, but a little less so because it constrains the total cost.  Another way to restructure it is to have a goal accuracy and try to get to that accuracy with minimal cost.  That is the coolest reformulation, in my mind.  It is cool because it might actually show you that once you get n points in the target you can just barely get to the accuracy you want by training the transfer learner more at minimal cost.  This is the sort of interesting result I would like to see. 
 
+### Notes:
 
+This uses PyTorch version 0.3.0 or 0.3.1
+It will NOT work with the most recent 0.4.0 release (4/25/2018)
