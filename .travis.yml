@@ -11,7 +11,7 @@ before_install:
     - pip install matplotlib
     - pip install seaborn
 env:
-    - TEST_DIR=src/tests 
+    - TEST_DIR=transfer/src/tests 
 script:
     - cd $TEST_DIR && py.test
 after_success:
